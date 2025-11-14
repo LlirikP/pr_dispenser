@@ -57,11 +57,11 @@ func main() {
 	v1router.Get("/team/get", handlers.GetTeamHandler)
 
 	v1router.Post("/users/setIsActive", handlers.SetUserActiveHandler)
-	v1router.Get("/users/getReview", handlers.GetUserReviewsHandler)
+	v1router.Get("/users/getReview", handlers.ReviewListHandler)
 
 	v1router.Post("/pullRequest/create", handlers.CreatePRHandler)
 	v1router.Post("/pullRequest/merge", handlers.MergePRHandler)
-	v1router.Post("/pullRequest/reassign", handlers.ReassignReviewerHandler)
+	v1router.Post("/pullRequest/reassign", handlers.AssignReviewerHandler)
 
 	router.Mount("/v1", v1router)
 

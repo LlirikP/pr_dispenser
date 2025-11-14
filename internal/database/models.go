@@ -7,33 +7,30 @@ package database
 import (
 	"database/sql"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type Pr struct {
-	ID        uuid.UUID
+	ID        string
 	Title     string
-	AuthorID  uuid.UUID
-	TeamID    uuid.UUID
+	AuthorID  string
 	Status    string
 	CreatedAt time.Time
 	MergedAt  sql.NullTime
 }
 
 type PrReviewer struct {
-	PrID       uuid.UUID
-	ReviewerID uuid.UUID
+	PrID       string
+	ReviewerID string
 }
 
 type Team struct {
-	ID       uuid.UUID
+	ID       string
 	Teamname string
 }
 
 type User struct {
-	ID       uuid.UUID
+	ID       string
 	Username string
 	IsActive bool
-	TeamID   uuid.UUID
+	TeamID   string
 }

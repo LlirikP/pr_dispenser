@@ -1,9 +1,9 @@
 -- name: CreatePR :exec
-INSERT INTO prs (id, title, author_id, team_id, status)
-VALUES ($1, $2, $3, $4, 'OPEN');
+INSERT INTO prs (id, title, author_id, status)
+VALUES ($1, $2, $3, 'OPEN');
 
 -- name: GetPRById :one
-SELECT id, title, author_id, team_id, status
+SELECT id, title, author_id, status, created_at, merged_at
 FROM prs
 WHERE id = $1;
 
@@ -29,11 +29,20 @@ WHERE team_id = $1
   AND id <> $2;
 
 -- name: IsReviewerAssigned :one
-SELECT COUNT(1) > 0 AS assigned
+SELECT COUNT(*) > 0 AS assigned
 FROM pr_reviewers
 WHERE pr_id = $1 AND reviewer_id = $2;
 
 -- name: MergePR :exec
 UPDATE prs
-SET status = 'MERGED'
+SET status = 'MERGED',
+    merged_at = NOW()
 WHERE id = $1;
+
+-- name: CheckDuplicatePR :one
+SELECT id
+FROM prs
+WHERE author_id = $1
+  AND title = $2
+  AND status = 'OPEN'
+LIMIT 1;

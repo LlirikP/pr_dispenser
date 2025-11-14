@@ -7,8 +7,6 @@ package database
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 const addReviewer = `-- name: AddReviewer :exec
@@ -18,8 +16,8 @@ ON CONFLICT DO NOTHING
 `
 
 type AddReviewerParams struct {
-	PrID       uuid.UUID
-	ReviewerID uuid.UUID
+	PrID       string
+	ReviewerID string
 }
 
 func (q *Queries) AddReviewer(ctx context.Context, arg AddReviewerParams) error {
@@ -27,25 +25,40 @@ func (q *Queries) AddReviewer(ctx context.Context, arg AddReviewerParams) error 
 	return err
 }
 
+const checkDuplicatePR = `-- name: CheckDuplicatePR :one
+SELECT id
+FROM prs
+WHERE author_id = $1
+  AND title = $2
+  AND status = 'OPEN'
+LIMIT 1
+`
+
+type CheckDuplicatePRParams struct {
+	AuthorID string
+	Title    string
+}
+
+func (q *Queries) CheckDuplicatePR(ctx context.Context, arg CheckDuplicatePRParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, checkDuplicatePR, arg.AuthorID, arg.Title)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createPR = `-- name: CreatePR :exec
-INSERT INTO prs (id, title, author_id, team_id, status)
-VALUES ($1, $2, $3, $4, 'OPEN')
+INSERT INTO prs (id, title, author_id, status)
+VALUES ($1, $2, $3, 'OPEN')
 `
 
 type CreatePRParams struct {
-	ID       uuid.UUID
+	ID       string
 	Title    string
-	AuthorID uuid.UUID
-	TeamID   uuid.UUID
+	AuthorID string
 }
 
 func (q *Queries) CreatePR(ctx context.Context, arg CreatePRParams) error {
-	_, err := q.db.ExecContext(ctx, createPR,
-		arg.ID,
-		arg.Title,
-		arg.AuthorID,
-		arg.TeamID,
-	)
+	_, err := q.db.ExecContext(ctx, createPR, arg.ID, arg.Title, arg.AuthorID)
 	return err
 }
 
@@ -55,8 +68,8 @@ WHERE pr_id = $1 AND reviewer_id = $2
 `
 
 type DeleteReviewerParams struct {
-	PrID       uuid.UUID
-	ReviewerID uuid.UUID
+	PrID       string
+	ReviewerID string
 }
 
 func (q *Queries) DeleteReviewer(ctx context.Context, arg DeleteReviewerParams) error {
@@ -73,19 +86,19 @@ WHERE team_id = $1
 `
 
 type GetActiveTeamMembersExceptAuthorParams struct {
-	TeamID uuid.UUID
-	ID     uuid.UUID
+	TeamID string
+	ID     string
 }
 
-func (q *Queries) GetActiveTeamMembersExceptAuthor(ctx context.Context, arg GetActiveTeamMembersExceptAuthorParams) ([]uuid.UUID, error) {
+func (q *Queries) GetActiveTeamMembersExceptAuthor(ctx context.Context, arg GetActiveTeamMembersExceptAuthorParams) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, getActiveTeamMembersExceptAuthor, arg.TeamID, arg.ID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	var items []string
 	for rows.Next() {
-		var id uuid.UUID
+		var id string
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -101,28 +114,21 @@ func (q *Queries) GetActiveTeamMembersExceptAuthor(ctx context.Context, arg GetA
 }
 
 const getPRById = `-- name: GetPRById :one
-SELECT id, title, author_id, team_id, status
+SELECT id, title, author_id, status, created_at, merged_at
 FROM prs
 WHERE id = $1
 `
 
-type GetPRByIdRow struct {
-	ID       uuid.UUID
-	Title    string
-	AuthorID uuid.UUID
-	TeamID   uuid.UUID
-	Status   string
-}
-
-func (q *Queries) GetPRById(ctx context.Context, id uuid.UUID) (GetPRByIdRow, error) {
+func (q *Queries) GetPRById(ctx context.Context, id string) (Pr, error) {
 	row := q.db.QueryRowContext(ctx, getPRById, id)
-	var i GetPRByIdRow
+	var i Pr
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.AuthorID,
-		&i.TeamID,
 		&i.Status,
+		&i.CreatedAt,
+		&i.MergedAt,
 	)
 	return i, err
 }
@@ -133,15 +139,15 @@ FROM pr_reviewers
 WHERE pr_id = $1
 `
 
-func (q *Queries) GetReviewersByPR(ctx context.Context, prID uuid.UUID) ([]uuid.UUID, error) {
+func (q *Queries) GetReviewersByPR(ctx context.Context, prID string) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, getReviewersByPR, prID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	var items []string
 	for rows.Next() {
-		var reviewer_id uuid.UUID
+		var reviewer_id string
 		if err := rows.Scan(&reviewer_id); err != nil {
 			return nil, err
 		}
@@ -157,14 +163,14 @@ func (q *Queries) GetReviewersByPR(ctx context.Context, prID uuid.UUID) ([]uuid.
 }
 
 const isReviewerAssigned = `-- name: IsReviewerAssigned :one
-SELECT COUNT(1) > 0 AS assigned
+SELECT COUNT(*) > 0 AS assigned
 FROM pr_reviewers
 WHERE pr_id = $1 AND reviewer_id = $2
 `
 
 type IsReviewerAssignedParams struct {
-	PrID       uuid.UUID
-	ReviewerID uuid.UUID
+	PrID       string
+	ReviewerID string
 }
 
 func (q *Queries) IsReviewerAssigned(ctx context.Context, arg IsReviewerAssignedParams) (bool, error) {
@@ -176,11 +182,12 @@ func (q *Queries) IsReviewerAssigned(ctx context.Context, arg IsReviewerAssigned
 
 const mergePR = `-- name: MergePR :exec
 UPDATE prs
-SET status = 'MERGED'
+SET status = 'MERGED',
+    merged_at = NOW()
 WHERE id = $1
 `
 
-func (q *Queries) MergePR(ctx context.Context, id uuid.UUID) error {
+func (q *Queries) MergePR(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, mergePR, id)
 	return err
 }

@@ -7,8 +7,6 @@ package database
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 const getReviewPRs = `-- name: GetReviewPRs :many
@@ -24,13 +22,13 @@ ORDER BY prs.id
 `
 
 type GetReviewPRsRow struct {
-	PrID     uuid.UUID
+	PrID     string
 	PrTitle  string
-	AuthorID uuid.UUID
+	AuthorID string
 	Status   string
 }
 
-func (q *Queries) GetReviewPRs(ctx context.Context, reviewerID uuid.UUID) ([]GetReviewPRsRow, error) {
+func (q *Queries) GetReviewPRs(ctx context.Context, reviewerID string) ([]GetReviewPRsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getReviewPRs, reviewerID)
 	if err != nil {
 		return nil, err
@@ -64,7 +62,7 @@ FROM users
 WHERE id = $1
 `
 
-func (q *Queries) GetUserById(ctx context.Context, id uuid.UUID) (User, error) {
+func (q *Queries) GetUserById(ctx context.Context, id string) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserById, id)
 	var i User
 	err := row.Scan(
@@ -83,7 +81,7 @@ WHERE id = $1
 `
 
 type SetUserIsActiveParams struct {
-	ID       uuid.UUID
+	ID       string
 	IsActive bool
 }
 

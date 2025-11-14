@@ -7,8 +7,6 @@ package database
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 const createTeam = `-- name: CreateTeam :exec
@@ -17,7 +15,7 @@ VALUES ($1, $2)
 `
 
 type CreateTeamParams struct {
-	ID       uuid.UUID
+	ID       string
 	Teamname string
 }
 
@@ -46,7 +44,7 @@ WHERE team_id = $1
 ORDER BY username
 `
 
-func (q *Queries) GetUsersByTeam(ctx context.Context, teamID uuid.UUID) ([]User, error) {
+func (q *Queries) GetUsersByTeam(ctx context.Context, teamID string) ([]User, error) {
 	rows, err := q.db.QueryContext(ctx, getUsersByTeam, teamID)
 	if err != nil {
 		return nil, err
@@ -84,10 +82,10 @@ SET username = EXCLUDED.username,
 `
 
 type UpsertUserParams struct {
-	ID       uuid.UUID
+	ID       string
 	Username string
 	IsActive bool
-	TeamID   uuid.UUID
+	TeamID   string
 }
 
 func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) error {
