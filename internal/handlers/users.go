@@ -17,12 +17,12 @@ type setUserActiveRequest struct {
 }
 
 type reviewListResponse struct {
-	Items []reviewListItem `json:"items"`
+	Items []reviewListItem `json:"pull_requests"`
 }
 
 type reviewListItem struct {
-	PrID     string `json:"pr_id"`
-	Title    string `json:"title"`
+	PrID     string `json:"pull_request_id"`
+	Title    string `json:"pull_request_name"`
 	AuthorID string `json:"author_id"`
 	Status   string `json:"status"`
 }
@@ -44,7 +44,7 @@ func SetUserActiveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := config.ApiCfg.DB.GetUserById(ctx, params.UserID)
+	user, err := config.ApiCfg.DB.GetUserById(ctx, params.UserID)
 	if err != nil {
 		RespondWithError(w, "USER_NOT_FOUND", "unknown user", http.StatusNotFound)
 		log.Printf("error finding user: %v", err)
@@ -62,7 +62,21 @@ func SetUserActiveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	teamName, err := config.ApiCfg.DB.GetTeamNameByID(ctx, user.TeamID)
+	if err != nil {
+		RespondWithError(w, "DB_ERROR", "failed to load team name", http.StatusInternalServerError)
+		return
+	}
+	resp := map[string]any{
+		"user": map[string]any{
+			"user_id":   user.ID,
+			"username":  user.Username,
+			"team_name": teamName,
+			"is_active": params.IsActive,
+		},
+	}
+
+	RespondWithJSON(w, http.StatusOK, resp)
 }
 
 func ReviewListHandler(w http.ResponseWriter, r *http.Request) {
@@ -100,5 +114,8 @@ func ReviewListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	err = json.NewEncoder(w).Encode(resp)
+	if err != nil {
+		log.Printf("error encoding response: %v", err)
+	}
 }

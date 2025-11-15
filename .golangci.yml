@@ -1,0 +1,55 @@
+version: 2
+
+run:
+  timeout: 3m
+  tests: true
+
+exclude-dirs:
+  - internal/database
+  - mocks
+  - generated
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - ineffassign
+    - goconst
+    - gocyclo
+    - misspell
+    - unconvert
+    - unparam
+    - whitespace
+
+linters-settings:
+  revive:
+    severity: warning
+    rules:
+      - name: indent-error-flow
+      - name: error-naming
+      - name: receiver-naming
+      - name: var-naming
+      - name: blank-imports
+      - name: empty-lines
+      - name: unreachable-code
+
+  gocyclo:
+    min-complexity: 15
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  gofumpt:
+    extra-rules: true
+
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    - path: internal/database
+      linters:
+        - gosimple
+        - staticcheck
+        - errcheck
+        - govet

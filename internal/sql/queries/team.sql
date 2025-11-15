@@ -20,3 +20,8 @@ SELECT id, username, is_active, team_id
 FROM users
 WHERE team_id = $1
 ORDER BY username;
+
+-- name: GetTeamNameByID :one
+SELECT teamname
+FROM teams
+WHERE id = $1;

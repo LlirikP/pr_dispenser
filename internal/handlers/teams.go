@@ -14,18 +14,18 @@ import (
 )
 
 type createTeamRequest struct {
-    TeamName string `json:"team_name"`
-    Members  []struct {
-        UserID   string `json:"user_id"`
-        Username string `json:"username"`
-        IsActive bool   `json:"is_active"`
-    } `json:"members"`
-}
-
-type teamMemberResponse struct {
+	TeamName string `json:"team_name"`
+	Members  []struct {
 		UserID   string `json:"user_id"`
 		Username string `json:"username"`
 		IsActive bool   `json:"is_active"`
+	} `json:"members"`
+}
+
+type teamMemberResponse struct {
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+	IsActive bool   `json:"is_active"`
 }
 
 type teamResponse struct {
@@ -34,64 +34,78 @@ type teamResponse struct {
 }
 
 func CreateTeamHandler(w http.ResponseWriter, r *http.Request) {
-    ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
 
-    params := createTeamRequest{}
+	params := createTeamRequest{}
 
-    if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-        http.Error(w, "invalid json", http.StatusBadRequest)
-        log.Printf("error parsing json, %v", err)
-        return
-    }
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		log.Printf("error parsing json, %v", err)
+		return
+	}
 
-    if params.TeamName == "" {
-        RespondWithError(w, "BAD_REQUEST", "team_name is required", http.StatusBadRequest)
-        return
-    }
+	if params.TeamName == "" {
+		RespondWithError(w, "BAD_REQUEST", "team_name is required", http.StatusBadRequest)
+		return
+	}
 
-    _, err := config.ApiCfg.DB.GetTeamByName(ctx, params.TeamName)
-    if err == nil {
-        RespondWithError(w, "TEAM_EXISTS", fmt.Sprintf("%s already exists", params.TeamName), http.StatusBadRequest)
-        log.Printf("team already exists, %v", err)
-        return
-    }
+	_, err := config.ApiCfg.DB.GetTeamByName(ctx, params.TeamName)
+	if err == nil {
+		RespondWithError(w, "TEAM_EXISTS", fmt.Sprintf("%s already exists", params.TeamName), http.StatusBadRequest)
+		log.Printf("team already exists, %v", err)
+		return
+	}
 
-    teamID := uuid.NewString()
+	teamID := uuid.NewString()
 
-    err = config.ApiCfg.DB.CreateTeam(ctx, database.CreateTeamParams{
-        ID:       teamID,
-        Teamname: params.TeamName,
-    })
+	err = config.ApiCfg.DB.CreateTeam(ctx, database.CreateTeamParams{
+		ID:       teamID,
+		Teamname: params.TeamName,
+	})
 
-    if err != nil {
-        http.Error(w, "could not create a team", http.StatusInternalServerError)
-        log.Printf("error creating a team, %v", err)
-        return
-    }
+	if err != nil {
+		http.Error(w, "could not create a team", http.StatusInternalServerError)
+		log.Printf("error creating a team, %v", err)
+		return
+	}
 
-    for _, m := range params.Members {
+	membersResp := make([]teamMemberResponse, 0, len(params.Members))
 
-        if m.UserID == "" {
-            RespondWithError(w, "BAD_REQUEST", "invalid user id", http.StatusBadRequest)
-            return
-        }
+	for _, m := range params.Members {
+		if m.UserID == "" {
+			RespondWithError(w, "BAD_REQUEST", "invalid user id", http.StatusBadRequest)
+			return
+		}
 
-        err := config.ApiCfg.DB.UpsertUser(ctx, database.UpsertUserParams{
-            ID:       m.UserID,
-            Username: m.Username,
-            IsActive: m.IsActive,
-            TeamID:   teamID,
-        })
+		err := config.ApiCfg.DB.UpsertUser(ctx, database.UpsertUserParams{
+			ID:       m.UserID,
+			Username: m.Username,
+			IsActive: m.IsActive,
+			TeamID:   teamID,
+		})
 
-        if err != nil {
-            RespondWithError(w, "DB_ERROR", "failed to upsert user", http.StatusInternalServerError)
-            log.Printf("error upserting user, %v", err)
-            return
-        }
-    }
+		if err != nil {
+			RespondWithError(w, "DB_ERROR", "failed to upsert user", http.StatusInternalServerError)
+			log.Printf("error upserting user, %v", err)
+			return
+		}
 
-    w.WriteHeader(http.StatusOK)
+		membersResp = append(membersResp, teamMemberResponse{
+			UserID:   m.UserID,
+			Username: m.Username,
+			IsActive: m.IsActive,
+		})
+	}
+
+	resp := map[string]any{
+		"team": teamResponse{
+			TeamName: params.TeamName,
+			Members:  membersResp,
+		},
+	}
+
+	RespondWithJSON(w, http.StatusCreated, resp)
 }
 
 func GetTeamHandler(w http.ResponseWriter, r *http.Request) {

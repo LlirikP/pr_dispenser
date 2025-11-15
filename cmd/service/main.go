@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 
 	"github.com/LlirikP/pr_dispenser/internal/config"
@@ -18,8 +17,6 @@ import (
 )
 
 func main() {
-	godotenv.Load()
-
 	portStr := os.Getenv("PORT_AUTH")
 
 	if portStr == "" {

@@ -37,6 +37,19 @@ func (q *Queries) GetTeamByName(ctx context.Context, teamname string) (Team, err
 	return i, err
 }
 
+const getTeamNameByID = `-- name: GetTeamNameByID :one
+SELECT teamname
+FROM teams
+WHERE id = $1
+`
+
+func (q *Queries) GetTeamNameByID(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRowContext(ctx, getTeamNameByID, id)
+	var teamname string
+	err := row.Scan(&teamname)
+	return teamname, err
+}
+
 const getUsersByTeam = `-- name: GetUsersByTeam :many
 SELECT id, username, is_active, team_id
 FROM users
