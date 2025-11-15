@@ -1,5 +1,7 @@
 Запсук проекта:
 
+0. Проверьте, что порт не занят
+
 1. Склонируйте репозиторий 
 
 git clone https://github.com/LlirikP/pr_dispenser
