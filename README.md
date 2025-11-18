@@ -10,7 +10,7 @@ git clone https://github.com/LlirikP/pr_dispenser
 
 cd pr_dispenser/
 
-2. Создайте .env в корне проекта (замените на реальные данные):
+2. (Необязательно) Создайте .env в корне проекта (замените на реальные данные) либо оставьте дефолтные значения:
 
 DB_URL=postgres://pruser:prpass@db:5432/prdb?sslmode=disable
 

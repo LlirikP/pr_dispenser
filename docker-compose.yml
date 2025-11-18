@@ -3,36 +3,41 @@ services:
     image: postgres:15
     container_name: db
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-prdb}
+      POSTGRES_USER: ${DB_USER:-pruser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-prpass}
     volumes:
       - db-data:/var/lib/postgresql/data
     ports:
-      - "${DB_PORT}:5432"
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pruser} -d ${DB_NAME:-prdb}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   service:
     build: .
-    env_file: .env
     container_name: pr_service
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "${PORT_AUTH:-8080}:8080"
+    environment:
+      PORT_AUTH: ${PORT_AUTH:-8080}
+      DB_USER: ${DB_USER:-pruser}
+      DB_PASSWORD: ${DB_PASSWORD:-prpass}
+      DB_NAME: ${DB_NAME:-prdb}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_URL: "postgres://${DB_USER:-pruser}:${DB_PASSWORD:-prpass}@db:${DB_PORT:-5432}/${DB_NAME:-prdb}?sslmode=disable"
     command: ["/bin/sh", "-c", "
       goose -dir /app/internal/sql/schema postgres \
-        \"postgres://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT}/${DB_NAME}?sslmode=disable\" up &&
+        \"postgres://${DB_USER:-pruser}:${DB_PASSWORD:-prpass}@db:${DB_PORT:-5432}/${DB_NAME:-prdb}?sslmode=disable\" up &&
       ./serv
     "]
+
 
 volumes:
   db-data:
